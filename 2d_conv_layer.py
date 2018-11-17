@@ -54,15 +54,18 @@ class Conv2D():
         filter_size = curr_filter.shape[0]
         result = np.zeros((img.shape))
 
-        for row in np.uint16(np.arange(filter_size/2, img.shape[0] - filter_size/2 - 2)):
-            for col in np.uint16(np.arange(filter_size/2, img.shape[1] - filter_size/2 - 2)):
+        #print(np.uint16(np.arange(filter_size/2, img.shape[0] - filter_size/2 - 2)))
+        #print(np.uint16(np.arange(filter_size/2, img.shape[1] - filter_size/2 - 2)))
+
+        for row in range(img.shape[0] - filter_size + 1):
+            for col in range(img.shape[1] - filter_size + 1):
                 sub_img = img[row: row + filter_size, col: col + filter_size]
                 conv_res = curr_filter * sub_img
                 conv_sum = np.sum(conv_res)
                 result[row][col] = conv_sum
 
-        result = result[np.uint16(filter_size / 2): result.shape[0] - np.uint16(filter_size/2),
-                        np.uint16(filter_size / 2): result.shape[1] - np.uint16(filter_size/2)]
+        result = result[: result.shape[0] - filter_size + 1,
+                        : result.shape[1] - filter_size + 1]
         return result
 
 
@@ -74,15 +77,15 @@ class Conv2D():
 
         self._init_filters()
         layer_filters = self.layer_filters
+
         if self._check_channel_dims(img, layer_filters):
             channel_idx = 0
             if channel_first:
                 channel_idx = 1
-
             if self.padding == 'valid':
                 feature_maps = np.zeros((img.shape[0 + channel_idx] - layer_filters.shape[1] + 1,
                                          img.shape[1 + channel_idx] - layer_filters.shape[1] + 1,
-                                         layer_filters.shape[0]))
+                                         self.num_kernels))
 
             # TODO: feature_maps for 'same' padding
             for filter_idx in range(layer_filters.shape[0]):
@@ -108,15 +111,21 @@ class Conv2D():
         return feature_maps
 
 
+def relu(feature_maps):
+    relu_out = np.zeros(feature_maps.shape)
+    for feature_dim in range(feature_maps.shape[-1]):
+        for row in range(feature_maps.shape[0]):
+            for col in range(feature_maps.shape[1]):
+                relu_out[row, col, feature_dim] = np.max(feature_maps[row, col, feature_dim], 0)
+    return relu_out
+
+
 if __name__ == "__main__":
     c1 = Conv2D()
     #c1.input_image(to_grayscale=True)
     feature_maps = c1.get_layer_feature_maps()
-    viewer = ImageViewer(feature_maps[:,:,0])
-    viewer.show()
-    viewer = ImageViewer(feature_maps[:,:,1])
-    viewer.show()
-    viewer = ImageViewer(feature_maps[:,:,2])
-    viewer.show()
-    viewer = ImageViewer(feature_maps[:,:,3])
-    viewer.show()
+    relu_out = relu(feature_maps)
+    for i in range(feature_maps.shape[-1]):
+        img = np.concatenate((feature_maps[:,:,i], relu_out[:,:,i]), axis=1)
+        viewer = ImageViewer(img)
+        viewer.show()
